@@ -1,0 +1,141 @@
+#include <AFMotor.h>    // For motor control
+#include <NewPing.h>    // For ultrasonic distance measurement
+
+// Ultrasonic sensor configuration
+#define TRIG_PIN A1
+#define ECHO_PIN A0
+#define MAX_DISTANCE 200
+
+// Light sensor configuration
+#define FOTO_PIN A2
+#define LIGHT_THRESHOLD 650
+
+// Motor control and speed settings
+#define MAX_SPEED 500
+#define TURN_SPEED 200
+
+NewPing radar(TRIG_PIN, ECHO_PIN, MAX_DISTANCE);
+
+AF_DCMotor motor1(1);
+AF_DCMotor motor2(2);
+
+int distance = 100;
+int lightLevel = 0;
+
+void setup() {
+  Serial.begin(9600);
+
+  // Initialize motors
+  motor1.setSpeed(MAX_SPEED);
+  motor2.setSpeed(MAX_SPEED);
+  stopMovement();
+
+  // Allow time to initialize
+  delay(3000);
+
+  // Initial distance check
+  distance = checkDistance();
+}
+
+void loop() {
+  // Continuously check the distance and light level
+  distance = checkDistance();
+  lightLevel = analogRead(FOTO_PIN);
+
+  Serial.print("Distance: ");
+  Serial.println(distance);
+  Serial.print("Light Level: ");
+  Serial.println(lightLevel);
+
+  // Check for "falling off" condition (light level below threshold)
+  if (lightLevel < LIGHT_THRESHOLD) {
+    stopOnEdge();  // Handle edge detection
+    return;        // Exit the loop to immediately process edge recovery
+  }
+
+  // If no obstacle, move forward
+  if (distance > 30) {
+    findTarget();  // Begin turning left to find a target
+  } else {
+    moveForward(); // Move forward when a target is detected
+  }
+}
+
+void findTarget() {
+  turnLeft(); // Start turning left indefinitely
+
+  while (true) { // Keep turning until an obstacle or edge is detected
+    distance = checkDistance();
+    lightLevel = analogRead(FOTO_PIN);
+
+    // If edge is detected, stop and recover
+    if (lightLevel < LIGHT_THRESHOLD) {
+      stopOnEdge();
+      return;
+    }
+
+    // If a target is found, stop turning
+    if (distance < 30) {
+      stopMovement();
+      Serial.println("Target Found!");
+      return;
+    }
+  }
+}
+
+int checkDistance() {
+  delay(50);  // Brief pause to avoid overwhelming the sensor
+  int cm = radar.ping_cm();
+  return cm > 0 ? cm : MAX_DISTANCE; // Return a valid distance or max distance
+}
+
+void stopMovement() {
+  motor1.run(RELEASE);
+  motor2.run(RELEASE);
+  Serial.println("Motors stopped");
+}
+
+void stopOnEdge() {
+  Serial.println("Edge detected! Recovering...");
+
+  // Recover by moving forward and turning away
+  stopMovement();
+  moveBackward();
+  delay(2000);
+  turnRight();
+  delay(1500);
+  moveForward();
+  delay(1000);
+}
+
+void moveForward() {
+  motor1.setSpeed(MAX_SPEED);
+  motor2.setSpeed(MAX_SPEED);
+  motor1.run(BACKWARD);
+  motor2.run(FORWARD);
+  Serial.println("Moving Forward");
+}
+
+void moveBackward() {
+  motor1.setSpeed(MAX_SPEED);
+  motor2.setSpeed(MAX_SPEED);
+  motor1.run(FORWARD);
+  motor2.run(BACKWARD);
+  Serial.println("Moving Backward");
+}
+
+void turnLeft() {
+  motor1.setSpeed(TURN_SPEED); 
+  motor2.setSpeed(TURN_SPEED);
+  motor1.run(FORWARD);
+  motor2.run(FORWARD);
+  Serial.println("Turning Left");
+}
+
+void turnRight() {
+  motor1.setSpeed(TURN_SPEED); 
+  motor2.setSpeed(TURN_SPEED);
+  motor1.run(BACKWARD);
+  motor2.run(BACKWARD);
+  Serial.println("Turning Right");
+}

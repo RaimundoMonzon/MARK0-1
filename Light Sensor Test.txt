@@ -1,0 +1,14 @@
+// Pin configuration
+#define FOTO_PIN A2
+
+void setup() {
+  Serial.begin(9600); // Start serial communication
+  pinMode(FOTO_PIN, INPUT); // Set A2 as an input
+}
+
+void loop() {
+  int lightLevel = analogRead(FOTO_PIN); // Read the light level
+  Serial.print("Light Level: ");
+  Serial.println(lightLevel); // Print the light level to the Serial Monitor
+  
+}
